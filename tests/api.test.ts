@@ -29,7 +29,7 @@ const sessions = {} as Record<string, { agent: Agent; csrf: string; id: string }
 before(async () => {
   mongo = await MongoMemoryServer.create(); uploads = await mkdtemp(path.join(os.tmpdir(), 'dai-an-api-test-'));
   await connectDatabase(mongo.getUri());
-  const config: Config = { NODE_ENV: 'test', PORT: 4000, MONGODB_URI: mongo.getUri(), JWT_SECRET: 'test-secret-'.repeat(8), SITE_ORIGIN: origin, TRUST_PROXY: 0, UPLOAD_DIR: uploads };
+  const config: Config = { NODE_ENV: 'test', PORT: 4000, HOST: '127.0.0.1', MONGODB_URI: mongo.getUri(), JWT_SECRET: 'test-secret-'.repeat(8), SITE_ORIGIN: origin, TRUST_PROXY: 0, UPLOAD_DIR: uploads };
   app = createApp(config);
   const passwordHash = await bcrypt.hash(password, 12);
   for (const role of ['administrator', 'communications', 'customer_service']) {
@@ -86,7 +86,7 @@ test('invalid and injected appointment payloads are rejected before persistence'
   const invalid = { ...appointment(), phone: { $ne: null } };
   await request(app).post('/api/public/appointments').set('Origin', origin).set('X-Idempotency-Key', randomUUID()).send(invalid).expect(400);
   await request(app).post('/api/public/appointments').set('Origin', origin).set('X-Idempotency-Key', randomUUID()).send({ ...appointment(), date: '2026-02-31', consent: false }).expect(400);
-  const otherApp = createApp({ NODE_ENV: 'test', PORT: 4000, MONGODB_URI: mongo.getUri(), JWT_SECRET: 'test-secret-'.repeat(8), SITE_ORIGIN: origin, TRUST_PROXY: 0, UPLOAD_DIR: uploads });
+  const otherApp = createApp({ NODE_ENV: 'test', PORT: 4000, HOST: '127.0.0.1', MONGODB_URI: mongo.getUri(), JWT_SECRET: 'test-secret-'.repeat(8), SITE_ORIGIN: origin, TRUST_PROXY: 0, UPLOAD_DIR: uploads });
   await request(otherApp).post('/api/public/appointments').set('Origin', origin).set('X-Idempotency-Key', randomUUID()).send({ ...appointment(), service: 'khong-ton-tai' }).expect(400);
 });
 
@@ -217,6 +217,22 @@ test('blog text styles, highlights and tables persist while unsafe styles are st
   assert.match(saved,/<mark style="background-color:\s*#fff3a3;\s*color:\s*inherit;?">/);assert.match(saved,/<sub>2<\/sub>/);assert.match(saved,/<sup>2<\/sup>/);
   assert.match(saved,/<th colspan="2" rowspan="1">/);assert.match(saved,/<td><p>B<\/p><\/td>/);
   assert.ok(!/color:\s*red|200px|position|background-image|evil\.example/.test(saved));
+});
+test('communications staff manage only the photo and video library content', async () => {
+  const item = { kind: 'gallery', slug: 'anh-thu-vien', name: 'Ảnh thư viện', summary: '', body: '', image: '', active: true, order: 1 };
+  const created = await staff('communications').post('/api/admin/content').send(item).expect(201);
+  assert.equal((await sessions.communications.agent.get('/api/admin/content?kind=gallery').expect(200)).body.items.some((entry: { slug: string }) => entry.slug === 'anh-thu-vien'), true);
+  await staff('communications').put(`/api/admin/content/${created.body._id}`).send({ ...item, name: 'Ảnh đã đổi tên' }).expect(200);
+  await staff('communications').put(`/api/admin/content/${created.body._id}`).send({ ...item, kind: 'banner' }).expect(403);
+  const video = await staff('communications').post('/api/admin/content').send({ ...item, kind: 'video', slug: 'video-thu-vien', name: 'Video thư viện', link: 'https://www.youtube.com/watch?v=abc' }).expect(201);
+  await sessions.communications.agent.get('/api/admin/content?kind=service').expect(403);
+  await staff('communications').post('/api/admin/content').send({ ...item, kind: 'page', slug: 'trang-cam' }).expect(403);
+  const service = await Content.findOne({ kind: 'service' }).lean();
+  await staff('communications').put(`/api/admin/content/${service!._id}`).send({ ...item, slug: 'doi-dich-vu' }).expect(403);
+  await staff('communications').del(`/api/admin/content/${service!._id}`).expect(403);
+  await staff('customer_service').post('/api/admin/content').send(item).expect(403);
+  await staff('communications').del(`/api/admin/content/${created.body._id}`).expect(200);
+  await staff('communications').del(`/api/admin/content/${video.body._id}`).expect(200);
 });
 test('long Vietnamese articles above the public JSON limit can be saved from the CMS',async()=>{
   const body=`<p>${'Bệnh viện Đại An chăm sóc sức khỏe. '.repeat(6000)}</p>`;

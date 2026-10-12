@@ -13,7 +13,7 @@ let cleaning = false;
 async function sweepMedia() { if(cleaning)return;cleaning=true;try{await cleanupMedia(config.UPLOAD_DIR);}catch{console.error('Media cleanup failed; will retry.');}finally{cleaning=false;} }
 void sweepMedia();
 const mediaTimer=setInterval(()=>void sweepMedia(),60*60*1000);mediaTimer.unref();
-const server = createApp(config).listen(config.PORT, '0.0.0.0', () => console.log(`Đại An API listening on port ${config.PORT}`));
+const server = createApp(config).listen(config.PORT, config.HOST, () => console.log(`Đại An API listening on port ${config.PORT}`));
 server.requestTimeout = 15000;
 server.headersTimeout = 10000;
 server.keepAliveTimeout = 5000;

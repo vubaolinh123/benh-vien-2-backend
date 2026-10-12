@@ -50,6 +50,10 @@ function feedbackQuery(request: Request) {
   if (data.dateFrom || data.dateTo) filter.createdAt = { ...(data.dateFrom ? { $gte: new Date(`${data.dateFrom}T00:00:00+07:00`) } : {}), ...(data.dateTo ? { $lte: new Date(`${data.dateTo}T23:59:59.999+07:00`) } : {}) };
   return { filter, page: data.page, limit: data.limit };
 }
+// Communications staff manage the photo and video library; every other content kind stays administrator-only.
+function contentAccess(request: Request, ...kinds: (string | undefined | null)[]) {
+  if (request.identity!.role !== 'administrator' && kinds.some(kind => kind && !['gallery', 'video'].includes(kind))) throw new HttpError(403, 'Bạn không có quyền thực hiện chức năng này.');
+}
 async function audit(request: Request, action: string, resourceId?: string) { await Audit.create({ userId: request.identity!.id, action, resourceId }); }
 
 export function adminRoutes(config: Config) {
@@ -151,26 +155,30 @@ export function adminRoutes(config: Config) {
     response.json({success:true,deleteAfter,message:'Đã lên lịch dọn ảnh sau 24 giờ. Ảnh được dùng lại sẽ tự động được giữ.'});
   });
 
-  router.get('/content', administrator, async (request, response) => {
+  router.get('/content', editorial, async (request, response) => {
     const data = validate(pagination.extend({ kind: contentSchema.shape.kind }), request.query);
+    contentAccess(request, data.kind);
     const [items, total] = await Promise.all([Content.find({ kind: data.kind }).sort({ order: 1, _id: 1 }).skip((data.page - 1) * data.limit).limit(data.limit).lean(), Content.countDocuments({ kind: data.kind })]);
     response.json({ items, total, page: data.page, limit: data.limit });
   });
-  router.post('/content', administrator, async (request, response) => {
+  router.post('/content', editorial, async (request, response) => {
     const data = validate(contentSchema, request.body);
+    contentAccess(request, data.kind);
     const item = await withMedia(data, () => Content.create(data));
     invalidatePublicCache(); await audit(request, 'content-create', String(item._id)); response.status(201).json(item);
   });
-  router.put('/content/:id', administrator, async (request, response) => {
+  router.put('/content/:id', editorial, async (request, response) => {
     const id = validate(objectId, request.params.id); const data = validate(contentSchema, request.body);
     const previous = await Content.findById(id).lean();
+    contentAccess(request, data.kind, previous?.kind);
     const item = await withMedia(data, async () => Content.findByIdAndUpdate(id, { $set: data }, { returnDocument: 'after', runValidators: true }));
     await scheduleMedia(previous);
     if (!item) throw new HttpError(404, 'Không tìm thấy nội dung.');
     invalidatePublicCache(); await audit(request, 'content-update', id); response.json(item);
   });
-  router.delete('/content/:id', administrator, async (request, response) => {
+  router.delete('/content/:id', editorial, async (request, response) => {
     const id = validate(objectId, request.params.id);
+    contentAccess(request, (await Content.findById(id).select('kind').lean())?.kind);
     const removed = await Content.findByIdAndDelete(id); if (!removed) throw new HttpError(404, 'Không tìm thấy nội dung.'); await scheduleMedia(removed.toObject());
     invalidatePublicCache(); await audit(request, 'content-delete', id); response.json({ success: true });
   });

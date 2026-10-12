@@ -4,6 +4,7 @@ import { z } from 'zod';
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.coerce.number().int().min(1).max(65535).default(4000),
+  HOST: z.string().default('0.0.0.0'),
   MONGODB_URI: z.string().min(1),
   JWT_SECRET: z.string().min(48),
   SITE_ORIGIN: z.url().default('https://benhviendaian.vn'),

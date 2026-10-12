@@ -1,6 +1,6 @@
 {$API_DOMAIN} {
   encode zstd gzip
-  request_body { max_size 9MB }
+  request_body { max_size 21MB }
   reverse_proxy api:4000 {
     transport http {
       dial_timeout 5s
