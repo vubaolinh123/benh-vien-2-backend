@@ -1,0 +1,8 @@
+node_modules/
+dist/
+uploads/
+preview/
+.env*
+!.env.example
+*.log
+*.tsbuildinfo
