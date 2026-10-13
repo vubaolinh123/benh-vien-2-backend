@@ -15,6 +15,21 @@ export async function setupHomeManagement() {
     await migrations.updateOne({_id:iconMigration}, {$setOnInsert:{completedAt:new Date()}}, {upsert:true});
     invalidatePublicCache();
   }
+  // Text-only banner slides introducing the hospital; they alternate with the image banners on the homepage.
+  const introMigration = 'banner-intro-slides-v1';
+  if (!await migrations.findOne({ _id: introMigration })) {
+    const slides = [
+      ['gioi-thieu-dai-an', 'THÀNH LẬP NĂM 2018', 'Bệnh viện Đa khoa Đại An – địa chỉ khám chữa bệnh uy tín', 'Không ngừng phát triển quy mô, đầu tư cơ sở vật chất, trang thiết bị y tế và nâng cao chất lượng chuyên môn để đáp ứng nhu cầu chăm sóc sức khỏe của người dân trong khu vực.'],
+      ['phuong-cham', 'PHƯƠNG CHÂM', 'Sáng Y Đức – Giỏi Y Thuật', 'Luôn lấy người bệnh làm trung tâm, đề cao y đức, tinh thần trách nhiệm và chất lượng chuyên môn; hướng tới dịch vụ y tế an toàn, hiệu quả và tận tâm.'],
+      ['quy-mo', 'QUY MÔ HOẠT ĐỘNG', '16 khoa lâm sàng, cận lâm sàng · 650 giường bệnh', 'Hệ thống chuyên khoa phối hợp chặt chẽ trong khám, chẩn đoán, điều trị và theo dõi sức khỏe, đáp ứng ngày càng tốt hơn nhu cầu khám chữa bệnh của cộng đồng.'],
+      ['doi-ngu', 'ĐỘI NGŨ Y TẾ', 'Tận tâm, giàu trách nhiệm', 'Bác sĩ chuyên khoa II, chuyên khoa I, thạc sĩ, bác sĩ đa khoa cùng đội ngũ điều dưỡng không ngừng nâng cao chuyên môn và phối hợp trong chẩn đoán, điều trị, chăm sóc người bệnh.'],
+      ['co-so-vat-chat', 'CƠ SỞ VẬT CHẤT', 'Khang trang, trang thiết bị y tế hiện đại', 'Đầu tư đồng bộ cơ sở vật chất và trang thiết bị hỗ trợ bác sĩ thăm khám, chẩn đoán, theo dõi và điều trị, đáp ứng nhu cầu chăm sóc sức khỏe từ cơ bản đến chuyên sâu.'],
+      ['nguoi-benh-trung-tam', 'CHĂM SÓC TOÀN DIỆN', 'Lấy người bệnh làm trung tâm', 'Sự an toàn, quyền lợi và sự hài lòng của người bệnh là ưu tiên trong mọi hoạt động; xây dựng môi trường y tế an toàn, thân thiện và chuyên nghiệp.'],
+    ];
+    for (const [index, [slug, eyebrow, name, summary]] of slides.entries()) await Content.updateOne({ kind: 'banner', slug }, { $setOnInsert: { kind: 'banner', slug, eyebrow, name, summary, image: '', link: '/gioi-thieu/', buttonLabel: 'Tìm hiểu thêm', order: 20 + index, active: true } }, { upsert: true });
+    await migrations.updateOne({ _id: introMigration }, { $setOnInsert: { completedAt: new Date() } }, { upsert: true });
+    invalidatePublicCache();
+  }
   const key = 'manage-all-home-v1';
   if (await migrations.findOne({ _id: key })) return;
   await Homepage.updateOne({ key: 'home' }, { $setOnInsert: { configuration: defaultHomepage } }, { upsert: true });
