@@ -223,7 +223,8 @@ test('communications staff manage only the photo and video library content', asy
   const created = await staff('communications').post('/api/admin/content').send(item).expect(201);
   assert.equal((await sessions.communications.agent.get('/api/admin/content?kind=gallery').expect(200)).body.items.some((entry: { slug: string }) => entry.slug === 'anh-thu-vien'), true);
   await staff('communications').put(`/api/admin/content/${created.body._id}`).send({ ...item, name: 'Ảnh đã đổi tên' }).expect(200);
-  await staff('communications').put(`/api/admin/content/${created.body._id}`).send({ ...item, kind: 'banner' }).expect(403);
+  await staff('communications').put(`/api/admin/content/${created.body._id}`).send({ ...item, kind: 'banner', image: '/assets/banner.png' }).expect(403);
+  await staff('administrator').post('/api/admin/content').send({ ...item, kind: 'banner', slug: 'banner-khong-anh' }).expect(400);
   const video = await staff('communications').post('/api/admin/content').send({ ...item, kind: 'video', slug: 'video-thu-vien', name: 'Video thư viện', link: 'https://www.youtube.com/watch?v=abc' }).expect(201);
   await sessions.communications.agent.get('/api/admin/content?kind=service').expect(403);
   await staff('communications').post('/api/admin/content').send({ ...item, kind: 'page', slug: 'trang-cam' }).expect(403);
@@ -291,4 +292,20 @@ test('legacy upload import is idempotent and unused images can be selected again
   await staff('communications').post(`/api/admin/media/${record._id}/select`).expect(200);
   assert.ok((await Media.findById(record._id).lean())!.deleteAfter!.getTime()>Date.now()+6*MEDIA_GRACE_MS);
   await Media.updateOne({_id:record._id},{$set:{deleteAfter:new Date(0)}});await cleanupMedia(uploads);await request(app).get(asset.url).expect(404);
+});
+
+
+test('image-only banner migration removes empty slides and preserves image order', async()=>{
+  await mongoose.connection.collection('content_migrations').deleteOne({_id:'banner-image-only-v2'} as never);
+  await Content.create({kind:'banner',slug:'legacy-empty-custom',name:'Banner chữ cũ',image:'',active:true,order:0});
+  const kept=await Content.create({kind:'banner',slug:'legacy-with-photo',name:'Banner ảnh đã chỉnh',image:'/assets/55d1223a1ac3ed1d.png',active:true,order:987});
+  await setupHomeManagement();await setupHomeManagement();
+  assert.equal(await Content.countDocuments({kind:'banner',image:''}),0);
+  assert.equal((await Content.findById(kept._id).lean())?.order,987);
+  const payload={kind:'banner',slug:'booking-image',name:'Banner đặt lịch',image:'/assets/55d1223a1ac3ed1d.png',link:'https://38749.byt.vn/kcb/dang-ky-kham',order:12,active:true};
+  const created=await staff('administrator').post('/api/admin/content').send(payload).expect(201);
+  await staff('administrator').put(`/api/admin/content/${created.body._id}`).send({...payload,image:''}).expect(400);
+  const listing=await sessions.administrator.agent.get('/api/admin/content?kind=banner&limit=100').expect(200);
+  const orders=listing.body.items.map((item:{order:number})=>item.order);
+  assert.deepEqual(orders,[...orders].sort((a,b)=>a-b));
 });
