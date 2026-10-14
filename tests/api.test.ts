@@ -218,7 +218,7 @@ test('blog text styles, highlights and tables persist while unsafe styles are st
   assert.match(saved,/<th colspan="2" rowspan="1">/);assert.match(saved,/<td><p>B<\/p><\/td>/);
   assert.ok(!/color:\s*red|200px|position|background-image|evil\.example/.test(saved));
 });
-test('communications staff manage only the photo and video library content', async () => {
+test('communications staff manage library and pages but cannot manage other site content', async () => {
   const item = { kind: 'gallery', slug: 'anh-thu-vien', name: 'Ảnh thư viện', summary: '', body: '', image: '', active: true, order: 1 };
   const created = await staff('communications').post('/api/admin/content').send(item).expect(201);
   assert.equal((await sessions.communications.agent.get('/api/admin/content?kind=gallery').expect(200)).body.items.some((entry: { slug: string }) => entry.slug === 'anh-thu-vien'), true);
@@ -227,7 +227,7 @@ test('communications staff manage only the photo and video library content', asy
   await staff('administrator').post('/api/admin/content').send({ ...item, kind: 'banner', slug: 'banner-khong-anh' }).expect(400);
   const video = await staff('communications').post('/api/admin/content').send({ ...item, kind: 'video', slug: 'video-thu-vien', name: 'Video thư viện', link: 'https://www.youtube.com/watch?v=abc' }).expect(201);
   await sessions.communications.agent.get('/api/admin/content?kind=service').expect(403);
-  await staff('communications').post('/api/admin/content').send({ ...item, kind: 'page', slug: 'trang-cam' }).expect(403);
+  await staff('communications').post('/api/admin/content').send({ ...item, kind: 'page', slug: 'trang-thong-tin' }).expect(201);
   const service = await Content.findOne({ kind: 'service' }).lean();
   await staff('communications').put(`/api/admin/content/${service!._id}`).send({ ...item, slug: 'doi-dich-vu' }).expect(403);
   await staff('communications').del(`/api/admin/content/${service!._id}`).expect(403);
@@ -308,4 +308,19 @@ test('image-only banner migration removes empty slides and preserves image order
   const listing=await sessions.administrator.agent.get('/api/admin/content?kind=banner&limit=100').expect(200);
   const orders=listing.body.items.map((item:{order:number})=>item.order);
   assert.deepEqual(orders,[...orders].sort((a,b)=>a-b));
+});
+
+
+test('communications can load and update a selected introduction page without changing other pages',async()=>{
+ const payload={kind:'page',slug:'gioi-thieu',name:'Giới thiệu bệnh viện do truyền thông sửa',summary:'Giới thiệu chi tiết',body:'<h2>Nội dung giới thiệu mới</h2>',image:'',active:true,order:0};
+ await Content.deleteMany({kind:'page',slug:'gioi-thieu'});
+ const created=await staff('communications').post('/api/admin/content').send(payload).expect(201);
+ const selected=await sessions.communications.agent.get('/api/admin/content?kind=page&slug=gioi-thieu').expect(200);
+ assert.equal(selected.body.total,1);assert.equal(selected.body.items[0]._id,created.body._id);
+ await staff('customer_service').put(`/api/admin/content/${created.body._id}`).send(payload).expect(403);
+ const body='<p style="text-align:center">Nội dung đã cập nhật</p>';
+ await staff('communications').put(`/api/admin/content/${created.body._id}`).send({...payload,body}).expect(200);
+ assert.match((await request(app).get('/api/public/content/page/gioi-thieu').expect(200)).body.body,/Nội dung đã cập nhật/);
+ await staff('communications').put(`/api/admin/content/${created.body._id}`).send({...payload,active:false}).expect(200);
+ await request(app).get('/api/public/content/page/gioi-thieu').expect(404);
 });

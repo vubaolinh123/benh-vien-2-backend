@@ -52,7 +52,7 @@ function feedbackQuery(request: Request) {
 }
 // Communications staff manage the photo and video library; every other content kind stays administrator-only.
 function contentAccess(request: Request, ...kinds: (string | undefined | null)[]) {
-  if (request.identity!.role !== 'administrator' && kinds.some(kind => kind && !['gallery', 'video'].includes(kind))) throw new HttpError(403, 'Bạn không có quyền thực hiện chức năng này.');
+  if (request.identity!.role !== 'administrator' && kinds.some(kind => kind && !['gallery', 'video', 'page'].includes(kind))) throw new HttpError(403, 'Bạn không có quyền thực hiện chức năng này.');
 }
 async function audit(request: Request, action: string, resourceId?: string) { await Audit.create({ userId: request.identity!.id, action, resourceId }); }
 
@@ -156,9 +156,10 @@ export function adminRoutes(config: Config) {
   });
 
   router.get('/content', editorial, async (request, response) => {
-    const data = validate(pagination.extend({ kind: contentSchema.shape.kind }), request.query);
+    const data = validate(pagination.extend({ kind: contentSchema.shape.kind, slug: slug.optional() }), request.query);
     contentAccess(request, data.kind);
-    const [items, total] = await Promise.all([Content.find({ kind: data.kind }).sort({ order: 1, _id: 1 }).skip((data.page - 1) * data.limit).limit(data.limit).lean(), Content.countDocuments({ kind: data.kind })]);
+    const filter = {kind:data.kind, ...(data.slug ? {slug:data.slug} : {})};
+    const [items, total] = await Promise.all([Content.find(filter).sort({ order: 1, _id: 1 }).skip((data.page - 1) * data.limit).limit(data.limit).lean(), Content.countDocuments(filter)]);
     response.json({ items, total, page: data.page, limit: data.limit });
   });
   router.post('/content', editorial, async (request, response) => {
