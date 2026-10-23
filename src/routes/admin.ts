@@ -12,7 +12,7 @@ import { homepageSchema, resolveHomepage } from '../lib/homepage.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 import { cleanHtml, escapeRegex, HttpError, imageUrl, objectId, pagination, slug, validate } from '../lib/http.js';
 import { invalidatePublicCache } from '../lib/cache.js';
-import { passwordSchema } from './auth.js';
+import { passwordSchema, loginIdentifierSchema } from './auth.js';
 import { withMedia, scheduleMedia, mediaUsage, MEDIA_GRACE_MS, MEDIA_ORPHAN_MS } from '../lib/media.js';
 import type { Config } from '../config.js';
 
@@ -27,7 +27,7 @@ const contentSchema = z.object({
   active: z.boolean().default(false), order: z.number().int().min(0).max(10000).default(0),
   placement: z.enum(['','intro','specialties','featured','health','hospital']).default(''), action: z.enum(['link','booking','feedback','gallery']).default('link'), icon: z.enum(['','calendar','file','money','book','shield','message','phone','heart','cross','users','search']).default(''), buttonLabel: z.string().max(100).default(''), eyebrow: z.string().max(150).default(''), targetSlug: z.string().max(100).default(''),
 }).strict().refine(data => data.kind !== 'banner' || Boolean(data.image), { message: 'Banner phải có ảnh.', path: ['image'] });
-const userSchema = z.object({ name: z.string().trim().min(2).max(80), email: z.email().max(254).transform(value => value.toLowerCase()), role, active: z.boolean().default(true), password: passwordSchema.optional().or(z.literal('')) }).strict();
+const userSchema = z.object({ name: z.string().trim().min(2).max(80), email: loginIdentifierSchema, role, active: z.boolean().default(true), password: passwordSchema.optional().or(z.literal('')) }).strict();
 const settingsSchema = z.object({ name: z.string().min(2).max(150), phone: z.string().min(8).max(30), email: z.email(), address: z.string().min(5).max(300), introduction: z.string().max(300000).transform(cleanHtml), workingHours: z.string().max(1000), privacy: z.string().max(300000).transform(cleanHtml), facebook: z.url().startsWith('https://www.facebook.com/').or(z.literal('')), tiktok: z.url().startsWith('https://www.tiktok.com/').or(z.literal('')) }).strict();
 const appointmentFilters = pagination.extend({ q: z.string().max(80).default(''), dateFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal('')), dateTo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal('')), service: z.string().max(100).default(''), status: z.enum(['new', 'contacted', 'confirmed', 'cancelled', '']).default('') });
 

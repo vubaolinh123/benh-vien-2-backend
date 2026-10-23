@@ -10,7 +10,8 @@ import { authenticate, cookieName } from '../middleware/auth.js';
 import { HttpError, validate } from '../lib/http.js';
 
 export const passwordSchema = z.string().min(12, 'Mật khẩu tối thiểu 12 ký tự').max(72).refine(value => Buffer.byteLength(value, 'utf8') <= 72, 'Mật khẩu quá dài');
-const loginSchema = z.object({ email: z.email().max(254).transform(value => value.trim().toLowerCase()), password: z.string().min(1).max(100) }).strict();
+export const loginIdentifierSchema = z.string().trim().min(1, 'Nhập tên đăng nhập hoặc email.').max(254).regex(/^[^\s\u0000-\u001f\u007f]+$/, 'Tên đăng nhập không được chứa khoảng trắng.').transform(value => value.toLowerCase());
+const loginSchema = z.object({ email: loginIdentifierSchema, password: z.string().min(1).max(100) }).strict();
 const dummyHash = bcrypt.hashSync('not-a-real-user-password', 12);
 
 export function authRoutes(config: Config) {
@@ -26,7 +27,7 @@ export function authRoutes(config: Config) {
         const failures = (user.lockedUntil && user.lockedUntil <= new Date() ? 0 : user.loginFailures) + 1;
         await User.updateOne({ _id: user._id }, { loginFailures: failures, ...(failures >= 5 ? { lockedUntil: new Date(Date.now() + 15 * 60000) } : {}) });
       }
-      throw new HttpError(401, 'Email hoặc mật khẩu không đúng, hoặc tài khoản tạm thời bị khóa.');
+      throw new HttpError(401, 'Tên đăng nhập hoặc mật khẩu không đúng, hoặc tài khoản tạm thời bị khóa.');
     }
     await User.updateOne({ _id: user._id }, { loginFailures: 0, $unset: { lockedUntil: 1 } });
     const jti = randomBytes(24).toString('hex');

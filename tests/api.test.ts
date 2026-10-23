@@ -324,3 +324,23 @@ test('communications can load and update a selected introduction page without ch
  await staff('communications').put(`/api/admin/content/${created.body._id}`).send({...payload,active:false}).expect(200);
  await request(app).get('/api/public/content/page/gioi-thieu').expect(404);
 });
+
+
+test('username-only accounts can be created, edited and authenticated with existing security checks',async()=>{
+ const payload={name:'Nhân sự tên đăng nhập',email:'  NhanSu.Test  ',role:'communications',active:true,password};
+ const created=await staff('administrator').post('/api/admin/users').send(payload).expect(201);
+ const user=await User.findOne({email:'nhansu.test'}).lean();assert.ok(user);
+ const login=()=>request(app).post('/api/auth/login').set('Origin',origin);
+ await login().send({email:' NHANSU.TEST ',password}).expect(200);
+ await login().send({email:'nhansu.test',password:'wrong-password'}).expect(401);
+ await login().send({email:'khong-ton-tai',password}).expect(401);
+ await login().send({email:{$ne:null},password}).expect(400);
+ await login().send({email:'   ',password}).expect(400);
+ await staff('administrator').post('/api/admin/users').send({...payload,email:'NHANSU.TEST'}).expect(409);
+ await staff('administrator').patch(`/api/admin/users/${user._id}`).send({...payload,email:'nhansu.test',password:'',active:false}).expect(200);
+ await login().send({email:'nhansu.test',password}).expect(401);
+ // Legacy accounts already stored without @ also work without a migration.
+ await User.create({name:'Legacy',email:'legacy-user',role:'communications',passwordHash:await bcrypt.hash(password,12),active:true});
+ await login().send({email:'legacy-user',password}).expect(200);
+ assert.ok(created.body);
+});
