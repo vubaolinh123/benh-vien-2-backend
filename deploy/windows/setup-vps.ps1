@@ -120,9 +120,12 @@ if ($Seed) {
 Step 'Đăng ký API tự chạy khi khởi động (task "benh-vien-api")'
 $node = (Get-Command node).Source
 Register-AutoStart 'benh-vien-api' "`"$node`" --env-file-if-exists=.env dist/server.js >> logs\api.log 2>&1" $AppDir
-Start-Sleep -Seconds 5
-try { Invoke-RestMethod http://127.0.0.1:4000/api/health | Out-Host }
-catch { throw "API chưa chạy. Xem log: $AppDir\logs\api.log" }
+$healthy = $false
+foreach ($i in 1..15) {
+  Start-Sleep -Seconds 2
+  try { Invoke-RestMethod http://127.0.0.1:4000/api/health | Out-Host; $healthy = $true; break } catch { Write-Host '...' }
+}
+if (-not $healthy) { throw "API chưa chạy. Xem log: $AppDir\logspi.log" }
 
 Step 'Cài Caddy (HTTPS reverse proxy)'
 New-Item -ItemType Directory -Force $CaddyDir | Out-Null

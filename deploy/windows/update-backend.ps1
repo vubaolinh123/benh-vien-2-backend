@@ -26,7 +26,10 @@ Invoke-Native npm.cmd @('run', 'build')
 
 Step 'Khởi động lại API'
 Start-ScheduledTask -TaskName 'benh-vien-api'
-Start-Sleep -Seconds 5
-try { Invoke-RestMethod http://127.0.0.1:4000/api/health | Out-Host }
-catch { throw "API chưa chạy. Xem log: $AppDir\logs\api.log" }
+$healthy = $false
+foreach ($i in 1..15) {
+  Start-Sleep -Seconds 2
+  try { Invoke-RestMethod http://127.0.0.1:4000/api/health | Out-Host; $healthy = $true; break } catch { Write-Host '...' }
+}
+if (-not $healthy) { throw "API chưa chạy. Xem log: $AppDir\logspi.log" }
 Write-Host "`nXONG." -ForegroundColor Green
