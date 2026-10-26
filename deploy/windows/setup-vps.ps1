@@ -76,7 +76,7 @@ Set-Location $AppDir
 
 Step 'Dừng API đang chạy (tránh khóa file sharp .dll khi npm ci)'
 Stop-ScheduledTask -TaskName 'benh-vien-api' -ErrorAction SilentlyContinue
-Get-CimInstance Win32_Process -Filter "Name='node.exe'" | Where-Object { $_.CommandLine -like "*$AppDir*" -or $_.CommandLine -like '*dist/server.js*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+Get-CimInstance Win32_Process -Filter "Name='node.exe'" | Where-Object { $_.CommandLine -like "*$AppDir*" } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
 Start-Sleep -Seconds 2
 
 Step 'Cài thư viện và build'

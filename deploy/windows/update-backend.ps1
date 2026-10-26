@@ -1,7 +1,8 @@
 ﻿# Cập nhật backend trên VPS Windows (chạy PowerShell "Run as Administrator").
+# Máy chủ dùng chung: chỉ dừng node.exe có đường dẫn nằm trong thư mục backend.
 # Tự dừng task benh-vien-api và node trước khi npm ci để tránh lỗi EPERM (sharp .dll bị khóa).
 #Requires -RunAsAdministrator
-param([string]$AppDir = 'C:\apps\benh-vien-api')
+param([string]$AppDir = 'C:\Users\Administrator\Desktop\benh-vien-2-backend')
 $ErrorActionPreference = 'Stop'
 function Step($text) { Write-Host "`n==> $text" -ForegroundColor Cyan }
 function Invoke-Native($exe, [string[]]$arguments) {
@@ -12,7 +13,7 @@ Set-Location $AppDir
 
 Step 'Dừng API'
 Stop-ScheduledTask -TaskName 'benh-vien-api' -ErrorAction SilentlyContinue
-Get-CimInstance Win32_Process -Filter "Name='node.exe'" | Where-Object { $_.CommandLine -like "*$AppDir*" -or $_.CommandLine -like '*dist/server.js*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+Get-CimInstance Win32_Process -Filter "Name='node.exe'" | Where-Object { $_.CommandLine -like "*$AppDir*" } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
 Start-Sleep -Seconds 2
 
 Step 'Lấy code mới'
