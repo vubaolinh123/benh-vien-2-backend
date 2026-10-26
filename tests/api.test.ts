@@ -218,22 +218,21 @@ test('blog text styles, highlights and tables persist while unsafe styles are st
   assert.match(saved,/<th colspan="2" rowspan="1">/);assert.match(saved,/<td><p>B<\/p><\/td>/);
   assert.ok(!/color:\s*red|200px|position|background-image|evil\.example/.test(saved));
 });
-test('communications staff manage library and pages but cannot manage other site content', async () => {
+test('communications staff manage every kind of website content, including homepage banners', async () => {
   const item = { kind: 'gallery', slug: 'anh-thu-vien', name: 'Ảnh thư viện', summary: '', body: '', image: '', active: true, order: 1 };
   const created = await staff('communications').post('/api/admin/content').send(item).expect(201);
   assert.equal((await sessions.communications.agent.get('/api/admin/content?kind=gallery').expect(200)).body.items.some((entry: { slug: string }) => entry.slug === 'anh-thu-vien'), true);
   await staff('communications').put(`/api/admin/content/${created.body._id}`).send({ ...item, name: 'Ảnh đã đổi tên' }).expect(200);
-  await staff('communications').put(`/api/admin/content/${created.body._id}`).send({ ...item, kind: 'banner', image: '/assets/banner.png' }).expect(403);
   await staff('administrator').post('/api/admin/content').send({ ...item, kind: 'banner', slug: 'banner-khong-anh' }).expect(400);
-  const video = await staff('communications').post('/api/admin/content').send({ ...item, kind: 'video', slug: 'video-thu-vien', name: 'Video thư viện', link: 'https://www.youtube.com/watch?v=abc' }).expect(201);
-  await sessions.communications.agent.get('/api/admin/content?kind=service').expect(403);
-  await staff('communications').post('/api/admin/content').send({ ...item, kind: 'page', slug: 'trang-thong-tin' }).expect(201);
+  const banner = await staff('communications').post('/api/admin/content').send({ ...item, kind: 'banner', slug: 'banner-truyen-thong', image: '/assets/banner.png' }).expect(201);
+  await staff('communications').put(`/api/admin/content/${banner.body._id}`).send({ ...item, kind: 'banner', slug: 'banner-truyen-thong', name: 'Banner đã đổi', image: '/assets/banner.png' }).expect(200);
+  await sessions.communications.agent.get('/api/admin/content?kind=service').expect(200);
   const service = await Content.findOne({ kind: 'service' }).lean();
-  await staff('communications').put(`/api/admin/content/${service!._id}`).send({ ...item, slug: 'doi-dich-vu' }).expect(403);
-  await staff('communications').del(`/api/admin/content/${service!._id}`).expect(403);
+  await staff('communications').put(`/api/admin/content/${service!._id}`).send({ ...item, kind: 'service', slug: service!.slug, name: service!.name }).expect(200);
   await staff('customer_service').post('/api/admin/content').send(item).expect(403);
+  await sessions.customer_service.agent.get('/api/admin/content?kind=banner').expect(403);
+  await staff('communications').del(`/api/admin/content/${banner.body._id}`).expect(200);
   await staff('communications').del(`/api/admin/content/${created.body._id}`).expect(200);
-  await staff('communications').del(`/api/admin/content/${video.body._id}`).expect(200);
 });
 test('long Vietnamese articles above the public JSON limit can be saved from the CMS',async()=>{
   const body=`<p>${'Bệnh viện Đại An chăm sóc sức khỏe. '.repeat(6000)}</p>`;
