@@ -31,5 +31,5 @@ foreach ($i in 1..15) {
   Start-Sleep -Seconds 2
   try { Invoke-RestMethod http://127.0.0.1:4000/api/health | Out-Host; $healthy = $true; break } catch { Write-Host '...' }
 }
-if (-not $healthy) { throw "API chưa chạy. Xem log: $AppDir\logspi.log" }
+if (-not $healthy) { throw "API chưa chạy. Xem log: $AppDir\logs\api.log" }
 Write-Host "`nXONG." -ForegroundColor Green
