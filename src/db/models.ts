@@ -18,10 +18,12 @@ const postSchema = new Schema({
   slug: { type: String, unique: true, required: true }, title: { type: String, required: true },
   category: { type: String, enum: ['news', 'health', 'qa'], required: true },
   excerpt: { type: String, required: true }, body: { type: String, required: true }, image: String,
+  topic: { type: String, default: '' },
   status: { type: String, enum: ['draft', 'published'], default: 'draft', index: true },
   authorId: { type: Schema.Types.ObjectId, ref: 'User' }, publishedAt: Date,
 }, options);
 postSchema.index({ status: 1, category: 1, publishedAt: -1 });
+postSchema.index({ status: 1, topic: 1, publishedAt: -1 });
 export const Post = mongoose.model('Post', postSchema);
 
 const contentSchema = new Schema({

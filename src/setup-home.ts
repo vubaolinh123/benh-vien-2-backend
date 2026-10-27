@@ -2,7 +2,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import mongoose from 'mongoose';
 import { Content, Homepage, connectDatabase } from './db/models.js';
-import { defaultHomepage } from './lib/homepage.js';
+import { defaultHomepage, defaultMenuChildren } from './lib/homepage.js';
 import { invalidatePublicCache } from './lib/cache.js';
 import { readConfig } from './config.js';
 
@@ -20,6 +20,18 @@ export async function setupHomeManagement() {
   if (!await migrations.findOne({ _id: textSlidesRemoval })) {
     await Content.deleteMany({ kind: 'banner', $or: [{ image: '' }, { image: null }, { image: { $exists: false } }] });
     await migrations.updateOne({ _id: textSlidesRemoval }, { $setOnInsert: { completedAt: new Date() } }, { upsert: true });
+    invalidatePublicCache();
+  }
+  // Every department and service in the main menu dropdowns needs a public page; staff fill in the details later.
+  const menuPages = 'main-menu-pages-v1';
+  if (!await migrations.findOne({ _id: menuPages })) {
+    for (const [kind, href] of [['specialty', '/chuyen-khoa/'], ['service', '/dich-vu/']] as const) {
+      for (const [order, { label, href: link }] of defaultMenuChildren[href].entries()) {
+        const slug = link.split('/')[2];
+        await Content.updateOne({ kind, slug }, { $setOnInsert: { kind, slug, name: label, summary: `Thông tin về ${label} tại Bệnh viện Đa khoa Đại An.`, body: `<p>Nội dung chi tiết về ${label} đang được cập nhật. Vui lòng gọi hotline hoặc đặt lịch để được tư vấn.</p>`, active: true, order: 100 + order } }, { upsert: true });
+      }
+    }
+    await migrations.updateOne({ _id: menuPages }, { $setOnInsert: { completedAt: new Date() } }, { upsert: true });
     invalidatePublicCache();
   }
   const key = 'manage-all-home-v1';

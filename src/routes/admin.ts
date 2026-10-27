@@ -17,7 +17,7 @@ import { withMedia, scheduleMedia, mediaUsage, MEDIA_GRACE_MS, MEDIA_ORPHAN_MS }
 import type { Config } from '../config.js';
 
 const role = z.enum(['administrator', 'communications', 'customer_service']);
-const postSchema = z.object({ slug, title: z.string().trim().min(5).max(200), category: z.enum(['news', 'health', 'qa']), excerpt: z.string().trim().min(10).max(500), body: z.string().min(10).max(300000).transform(cleanHtml), image: imageUrl, status: z.enum(['draft', 'published']) }).strict();
+const postSchema = z.object({ slug, title: z.string().trim().min(5).max(200), category: z.enum(['news', 'health', 'qa']), excerpt: z.string().trim().min(10).max(500), body: z.string().min(10).max(300000).transform(cleanHtml), image: imageUrl, topic: z.union([slug, z.literal('')]).default(''), status: z.enum(['draft', 'published']) }).strict();
 const contentSchema = z.object({
   kind: z.enum(['service', 'specialty', 'doctor', 'page', 'banner', 'gallery', 'video', 'promotion', 'care_activity', 'support_link', 'editorial_link']), slug,
   name: z.string().trim().min(2).max(200), summary: z.string().trim().max(600).default(''),

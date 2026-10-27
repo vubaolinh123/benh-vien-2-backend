@@ -29,8 +29,8 @@ export function publicRoutes(config: Config) {
     response.json(data);
   });
   router.get('/posts', async (request, response) => {
-    const data = validate(pagination.extend({ category: z.enum(['news', 'health', 'qa', '']).default('') }), request.query);
-    const filter = { status: 'published' as const, ...(data.category ? { category: data.category } : {}) };
+    const data = validate(pagination.extend({ category: z.enum(['news', 'health', 'qa', '']).default(''), topic: z.union([slug, z.literal('')]).default('') }), request.query);
+    const filter = { status: 'published' as const, ...(data.category ? { category: data.category } : {}), ...(data.topic ? { topic: data.topic } : {}) };
     const [items, total] = await Promise.all([Post.find(filter).select('-body -authorId').sort({ publishedAt: -1 }).skip((data.page - 1) * data.limit).limit(data.limit).lean(), Post.countDocuments(filter)]);
     response.setHeader('Cache-Control', 'public, max-age=30, s-maxage=60, stale-while-revalidate=300');
     response.json({ items, total, page: data.page, limit: data.limit });

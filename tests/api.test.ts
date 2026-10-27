@@ -343,3 +343,21 @@ test('username-only accounts can be created, edited and authenticated with exist
  await login().send({email:'legacy-user',password}).expect(200);
  assert.ok(created.body);
 });
+
+test('main menu dropdowns are editable, old menus gain defaults, and Sống khỏe topics filter articles',async()=>{
+  await Homepage.updateOne({key:'home'},{$set:{configuration:{...structuredClone(defaultHomepage),navigation:[{label:'Chuyên khoa',href:'/chuyen-khoa/'},{label:'Liên hệ',href:'/lien-he/'}]}}},{upsert:true}); invalidatePublicCache();
+  let home=await request(app).get('/api/public/home').expect(200);
+  assert.equal(home.body.homepage.navigation[0].children.length,14); assert.equal(home.body.homepage.navigation[1].children,undefined);
+  await setupHomeManagement(); await setupHomeManagement();
+  assert.equal(await Content.countDocuments({kind:'specialty',slug:'khoa-vat-ly-tri-lieu-phuc-hoi-chuc-nang',active:true}),1);
+  assert.equal(await Content.countDocuments({kind:'service',slug:'tan-soi-than-ong-mem',active:true}),1);
+  const config=structuredClone(defaultHomepage); config.navigation[0].children=[{label:'Khoa mới',href:'/chuyen-khoa/khoa-moi/'}]; config.navigation[1].children=[];
+  await staff('administrator').put('/api/admin/homepage').send(config).expect(200);
+  home=await request(app).get('/api/public/home').expect(200);
+  assert.deepEqual(home.body.homepage.navigation[0].children,config.navigation[0].children); assert.deepEqual(home.body.homepage.navigation[1].children,[]);
+  await staff('administrator').put('/api/admin/homepage').send({...config,navigation:[{label:'X',href:'/x/',children:[{label:'Bad',href:'javascript:alert(1)'}]}]}).expect(400);
+  const post={title:'Chăm sóc trẻ khi sốt cao',slug:'cham-soc-tre-sot',category:'health',excerpt:'Hướng dẫn ba mẹ chăm sóc trẻ sốt tại nhà.',body:'<p>Nội dung bài viết nhi khoa</p>',status:'published',image:'',topic:'nhi-khoa'};
+  await staff('communications').post('/api/admin/posts').send(post).expect(201);
+  assert.equal((await request(app).get('/api/public/posts?category=health&topic=nhi-khoa').expect(200)).body.total,1);
+  assert.equal((await request(app).get('/api/public/posts?category=health&topic=san-khoa').expect(200)).body.total,0);
+});
